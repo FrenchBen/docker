@@ -45,6 +45,15 @@ func generateCliReferenceDocs(opts *options) error {
 	return doc.GenMarkdownTree(cmd, opts.cliTarget)
 }
 
+func generateCliYaml(opts *options) error {
+	cmd, err := loadCommands(opts.source)
+	if err != nil {
+		return err
+	}
+
+	return GenYamlTree(cmd, opts.yamlTarget)
+}
+
 func loadCommands(source string) (*cobra.Command, error) {
 	stdin, stdout, stderr := term.StdStreams()
 	dockerCli := command.NewDockerCli(stdin, stdout, stderr)
@@ -60,6 +69,7 @@ func loadCommands(source string) (*cobra.Command, error) {
 
 func loadLongDescription(cmd *cobra.Command, path string) error {
 	for _, cmd := range cmd.Commands() {
+		log.Println("Looking at: ", cmd.Name())
 		if cmd.Name() == "" {
 			continue
 		}
@@ -84,9 +94,10 @@ func loadLongDescription(cmd *cobra.Command, path string) error {
 }
 
 type options struct {
-	source    string
-	manTarget string
-	cliTarget string
+	source     string
+	manTarget  string
+	cliTarget  string
+	yamlTarget string
 }
 
 func parseArgs() (*options, error) {
@@ -96,6 +107,7 @@ func parseArgs() (*options, error) {
 	flags.StringVar(&opts.source, "root", cwd, "Path to project root")
 	flags.StringVar(&opts.manTarget, "man", "", "Target path for generated man pages")
 	flags.StringVar(&opts.cliTarget, "cli", "", "Target path for generated cli reference")
+	flags.StringVar(&opts.yamlTarget, "yaml", "", "Target path for generated yaml reference")
 	err := flags.Parse(os.Args[1:])
 	return opts, err
 }
@@ -120,7 +132,14 @@ func main() {
 			os.Exit(2)
 		}
 	}
-	if opts.manTarget == "" && opts.cliTarget == "" {
+	if opts.yamlTarget != "" {
+		fmt.Printf("Generating yaml reference into %s\n", opts.yamlTarget)
+		if err := generateCliYaml(opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to generate cli yaml: %s\n", err.Error())
+			os.Exit(2)
+		}
+	}
+	if opts.manTarget == "" && opts.cliTarget == "" && opts.yamlTarget == "" {
 		fmt.Fprintln(os.Stderr, "Nothing to do")
 		os.Exit(1)
 	}
